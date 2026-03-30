@@ -1,0 +1,80 @@
+import numpy as np
+import skfuzzy as fuzz
+from skfuzzy import control as ctrl
+
+suhu = ctrl.Antecedent(np.arange(0, 41, 1), 'suhu')              # 0–40 °C
+kelembapan = ctrl.Antecedent(np.arange(0, 101, 1), 'kelembapan') # 0–100 %
+
+kecepatan = ctrl.Consequent(np.arange(0, 101, 1), 'kecepatan')   # 0–100
+
+
+suhu['Dingin'] = fuzz.trapmf(suhu.universe, [0, 0, 10, 20])
+suhu['Sejuk']  = fuzz.trimf(suhu.universe, [10, 20, 30])
+suhu['Panas']  = fuzz.trapmf(suhu.universe, [25, 35, 40, 40])
+
+kelembapan['Kering'] = fuzz.zmf(kelembapan.universe, 0, 40)
+kelembapan['Sedang'] = fuzz.trimf(kelembapan.universe, [20, 50, 80])
+kelembapan['Basah']  = fuzz.smf(kelembapan.universe, 60, 100)
+
+kecepatan['Lambat'] = fuzz.trapmf(kecepatan.universe, [0, 0, 20, 40])
+kecepatan['Sedang'] = fuzz.trimf(kecepatan.universe, [30, 50, 70])
+kecepatan['Cepat']  = fuzz.trapmf(kecepatan.universe, [60, 80, 100, 100])
+
+
+suhu.view()
+kelembapan.view()
+kecepatan.view()
+
+input("Tekan ENTER untuk lanjut ke aturan...")
+
+aturan1 = ctrl.Rule(suhu['Dingin'], kecepatan['Lambat'])
+aturan2 = ctrl.Rule(suhu['Sejuk'] & kelembapan['Sedang'], kecepatan['Sedang'])
+aturan3 = ctrl.Rule(suhu['Panas'] | kelembapan['Basah'], kecepatan['Cepat'])
+aturan4 = ctrl.Rule(suhu['Sejuk'] & kelembapan['Kering'], kecepatan['Lambat'])
+aturan5 = ctrl.Rule(suhu['Panas'] & kelembapan['Kering'], kecepatan['Sedang'])
+
+engine = ctrl.ControlSystem([aturan1, aturan2, aturan3, aturan4, aturan5])
+system = ctrl.ControlSystemSimulation(engine)
+
+
+while True:
+    try:
+        s = float(input("Masukkan suhu (0-40): "))
+        if 0 <= s <= 40:
+            break
+        else:
+            print("❌ Suhu harus antara 0 sampai 40!")
+    except:
+        print("❌ Input harus berupa angka!")
+
+while True:
+    try:
+        k = float(input("Masukkan kelembapan (0-100): "))
+        if 0 <= k <= 100:
+            break
+        else:
+            print("❌ Kelembapan harus antara 0 sampai 100!")
+    except:
+        print("❌ Input harus berupa angka!")
+
+system.input['suhu'] = s
+system.input['kelembapan'] = k
+
+
+system.compute()
+
+hasil = system.output['kecepatan']
+
+print("\n=== HASIL ===")
+print("Nilai kecepatan kipas:", round(hasil, 2))
+
+if hasil < 40:
+    print("Kategori: Lambat")
+elif hasil < 70:
+    print("Kategori: Sedang")
+else:
+    print("Kategori: Cepat")
+
+kecepatan.view(sim=system)
+
+input("\nTekan ENTER untuk keluar...")
